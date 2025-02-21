@@ -45,8 +45,6 @@ type TCPClientInterface struct {
 	neverConnected    bool
 	writing           bool
 	maxReconnectTries int
-	packetBuffer      []byte
-	packetType        byte
 	mutex             sync.RWMutex
 	enabled           bool
 	TxBytes           uint64
@@ -65,7 +63,6 @@ func NewTCPClientInterface(name string, targetHost string, targetPort int, kissF
 		initiator:         true,
 		enabled:           enabled,
 		maxReconnectTries: TCP_PROBES,
-		packetBuffer:      make([]byte, 0),
 		neverConnected:    true,
 	}
 
@@ -204,18 +201,18 @@ func (tc *TCPClientInterface) handlePacket(data []byte) {
 		return
 	}
 
+	packetType := data[0]
+	payload := data[1:]
+
 	tc.mutex.Lock()
-	tc.packetType = data[0]
 	tc.RxBytes += uint64(len(data))
 	lastRx := time.Now()
 	tc.lastRx = lastRx
 	tc.mutex.Unlock()
 
-	log.Printf("[DEBUG-7] Received packet: type=0x%02x, size=%d bytes", tc.packetType, len(data))
+	log.Printf("[DEBUG-7] Received packet: type=0x%02x, size=%d bytes", packetType, len(data))
 
-	payload := data[1:]
-
-	switch tc.packetType {
+	switch packetType {
 	case 0x01: // Announce packet
 		log.Printf("[DEBUG-7] Processing announce packet: payload=%d bytes", len(payload))
 		if len(payload) >= 53 {
